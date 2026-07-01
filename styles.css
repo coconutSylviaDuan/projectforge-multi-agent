@@ -1,0 +1,287 @@
+:root {
+  --bg: #f5f7fb;
+  --panel: #ffffff;
+  --line: #dbe3ee;
+  --ink: #172033;
+  --muted: #657189;
+  --accent: #0f7b6c;
+  --accent-dark: #095c50;
+  --soft: #eef3f8;
+  --warn: #b7791f;
+  --ok: #157f3b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+}
+
+.shell {
+  width: min(1480px, 100%);
+  margin: 0 auto;
+  padding: 28px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px;
+  padding-bottom: 24px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+h1,
+h2 {
+  margin: 0;
+}
+
+h1 {
+  font-size: 42px;
+  line-height: 1.1;
+}
+
+h2 {
+  font-size: 18px;
+}
+
+.status {
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(340px, 430px) 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.panel,
+.output {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.input-panel {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+}
+
+.panel-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fbfdff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  outline: none;
+}
+
+input,
+select {
+  height: 42px;
+  padding: 0 12px;
+}
+
+textarea {
+  min-height: 148px;
+  padding: 12px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.switch-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.switch-row label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+}
+
+.switch-row input {
+  width: auto;
+  height: auto;
+}
+
+button {
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.primary-btn,
+.secondary-btn {
+  height: 46px;
+  border: 0;
+  color: #fff;
+}
+
+.primary-btn {
+  background: var(--accent);
+}
+
+.secondary-btn {
+  background: #263348;
+}
+
+.ghost-btn {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--accent-dark);
+}
+
+.output {
+  padding: 20px;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr 1.6fr;
+  gap: 14px;
+}
+
+.metrics article {
+  min-height: 98px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--soft);
+}
+
+.metrics span {
+  display: block;
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.metrics strong {
+  display: block;
+  font-size: 18px;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.agent-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+  overflow-x: auto;
+}
+
+.agent-card {
+  min-height: 116px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.agent-card strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.agent-card span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.tab {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--muted);
+}
+
+.tab.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+pre {
+  min-height: 360px;
+  max-height: 560px;
+  margin: 0;
+  padding: 16px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdff;
+  color: #263348;
+  font: 13px/1.55 Consolas, "Microsoft YaHei", monospace;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 980px) {
+  .workspace,
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
