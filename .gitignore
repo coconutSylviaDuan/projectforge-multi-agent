@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual Environment
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# WorkBuddy
+.workbuddy/
+
+# Generated projects (sub-projects with their own git)
+generated_projects/*/venv/
+generated_projects/*/.workbuddy/
+
+# Database
+*.db
+*.sqlite3
+
+# Logs
+*.log
+
+# ENV
+.env
+.env.local
