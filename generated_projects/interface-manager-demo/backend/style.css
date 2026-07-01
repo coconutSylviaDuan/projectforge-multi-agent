@@ -1,0 +1,10 @@
+body { background-color: #f8f9fa; }
+.method-badge { font-weight: bold; padding: 0.25rem 0.5rem; border-radius: 0.25rem; color: #fff; }
+.method-GET { background-color: #28a745; }
+.method-POST { background-color: #007bff; }
+.method-PUT { background-color: #fd7e14; }
+.method-DELETE { background-color: #dc3545; }
+.table-hover tbody tr:hover { background-color: #e9ecef; }
+textarea.monospace { font-family: monospace; }
+.card { margin-bottom: 1rem; }
+.status-badge { font-size: 0.9rem; padding: 0.3rem 0.6rem; }
