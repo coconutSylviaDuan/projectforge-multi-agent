@@ -1,0 +1,10 @@
+{
+  "user_request": "请帮我基于聚宽规格，实现一个 AI 策略系统，包括 AI 多轮对话生成策略，策略回测，绩效分析。",
+  "industry": "证券金融",
+  "project_type": "AI 策略系统",
+  "tech_stack": "FastAPI + SQLite + HTML/CSS/JS",
+  "needs_auth": false,
+  "needs_database": true,
+  "needs_external_api": true,
+  "constraints": ["一天内可演示", "MVP 优先", "本地可运行", "外部大模型 API 生成策略说明"]
+}
