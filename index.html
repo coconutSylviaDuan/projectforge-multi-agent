@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ProjectForge Multi-Agent | AI 项目生成工作台</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">ProjectForge Multi-Agent</p>
+          <h1>AI 项目生成工作台</h1>
+        </div>
+        <span class="status">LangGraph + Contract Revision + Code Execution</span>
+      </header>
+
+      <section class="workspace">
+        <aside class="panel input-panel">
+          <div class="panel-title">
+            <h2>输入项目需求</h2>
+            <button id="loadExampleBtn" class="ghost-btn" type="button">载入策略示例</button>
+          </div>
+
+          <label>
+            需求描述
+            <textarea
+              id="userRequest"
+              placeholder="例如：请帮我实现一个 AI 策略系统，包括 AI 多轮对话生成策略、策略回测、绩效分析。"
+            ></textarea>
+          </label>
+          <label>
+            行业
+            <input id="industry" value="证券金融" />
+          </label>
+          <label>
+            项目类型
+            <input id="projectType" value="AI 策略系统" />
+          </label>
+          <label>
+            技术栈
+            <select id="techStack">
+              <option>FastAPI + SQLite + HTML/CSS/JS</option>
+              <option>FastAPI + SQLite + React/Vite</option>
+              <option>Node.js + SQLite + React/Vite</option>
+            </select>
+          </label>
+          <div class="switch-row">
+            <label><input id="needsDatabase" type="checkbox" checked /> 需要数据库</label>
+            <label><input id="needsExternalApi" type="checkbox" checked /> 接入外部 API</label>
+            <label><input id="needsAuth" type="checkbox" /> 需要登录</label>
+          </div>
+          <label>
+            约束条件
+            <input id="constraints" value="一天内可演示, MVP 优先, 本地可运行" />
+          </label>
+          <label>
+            生成目录 Slug
+            <input id="slug" value="jq-ai-strategy-system" />
+          </label>
+          <label>
+            修改意见
+            <textarea
+              id="revisionFeedback"
+              placeholder="例如：增加管理员和普通用户两种角色；Mock 配置增加延迟时间和 HTTP 状态码。"
+            ></textarea>
+          </label>
+
+          <button id="runPlanBtn" class="primary-btn" type="button">运行多 Agent 方案设计</button>
+          <button id="loadProjectBtn" class="secondary-btn" type="button">载入已有项目</button>
+          <button id="reviseBtn" class="secondary-btn" type="button" disabled>修改当前方案</button>
+          <button id="scaffoldBtn" class="secondary-btn" type="button" disabled>生成项目骨架</button>
+          <button id="executeBtn" class="secondary-btn" type="button" disabled>执行契约生成代码</button>
+        </aside>
+
+        <section class="output">
+          <div class="metrics">
+            <article>
+              <span>当前阶段</span>
+              <strong id="stageText">待运行</strong>
+            </article>
+            <article>
+              <span>项目名称</span>
+              <strong id="projectName">--</strong>
+            </article>
+            <article>
+              <span>生成目录</span>
+              <strong id="generatedDir">--</strong>
+            </article>
+          </div>
+
+          <div class="agent-strip" id="agentStrip"></div>
+
+          <div class="tabs">
+            <button class="tab active" data-tab="requirement">需求契约</button>
+            <button class="tab" data-tab="prd">PRD 文档</button>
+            <button class="tab" data-tab="ui">UI 契约</button>
+            <button class="tab" data-tab="uiDesign">UI 设计稿</button>
+            <button class="tab" data-tab="backend">后端/API 契约</button>
+            <button class="tab" data-tab="frontend">前端契约</button>
+            <button class="tab" data-tab="integration">集成契约</button>
+            <button class="tab" data-tab="projectContext">本地项目上下文</button>
+            <button class="tab" data-tab="revision">修改记录</button>
+            <button class="tab" data-tab="execution">执行结果</button>
+          </div>
+          <pre id="contractView">请输入需求后运行多 Agent。</pre>
+        </section>
+      </section>
+    </main>
+
+    <script src="./app.js?v=8"></script>
+  </body>
+</html>
