@@ -1,0 +1,1574 @@
+{
+  "request": {
+    "user_request": "请帮我实现一个 AI 策略系统，包括 AI 多轮对话生成策略、策略回测、绩效分析、策略列表页和回测结果页。策略回测和生成规则依赖聚宽平台。\n\n主页是一个Agent对话框，当我输入一句话，比如请帮我生成一个双均线策略，点击回车，会调用大模型，帮我生成可以在聚宽标准下运行的策略代码。\n\n生成代码后会跳转到策略编辑页面，左边是代码编辑，右边有2个tab页，一个是多轮对话，会继续和AI对话，进行代码更改，右边是快速回测结果。代码编辑上方有几个按钮：保存按钮，保存到策略列表。快速回测按钮，右边tab页显示快速回测结果，帮助客户进一步改代码。运行回测绩效分析按钮，跳转到另一个策略绩效分析页面，展示详细的绩效分析结果。不管是快速回测还是运行回测，结果都会保留到回测列表页。但只有运行回测绩效分析，结果才会真正绑定到这条策略，并进行这条策略的保存。\n\n要求本地可演示。",
+    "industry": "证券金融",
+    "project_type": "AI 策略系统",
+    "tech_stack": "FastAPI + SQLite + React/Vite",
+    "needs_auth": true,
+    "needs_database": true,
+    "needs_external_api": true,
+    "constraints": []
+  },
+  "requirement_spec": {
+    "project_name": "AI策略系统MVP",
+    "summary": "基于AI多轮对话的量化策略生成与回测系统，支持快速生成可在聚宽平台运行的策略代码，提供代码编辑、快速回测、绩效分析等功能，MVP版本本地可运行。",
+    "target_users": [
+      "证券金融从业者",
+      "量化交易用户",
+      "个人投资者"
+    ],
+    "core_goals": [
+      "通过自然语言交互生成量化策略代码",
+      "支持策略的快速回测与绩效分析",
+      "提供策略管理和回测结果查看",
+      "降低量化策略开发门槛"
+    ],
+    "mvp_scope": [
+      "AI对话生成策略（基于大模型）",
+      "策略编辑页面（代码编辑器+多轮对话+快速回测tab）",
+      "快速回测功能（模拟聚宽环境）",
+      "运行回测绩效分析（完整回测并绑定策略）",
+      "策略列表页",
+      "回测结果列表页",
+      "用户登录/注册（本地模拟）",
+      "本地SQLite存储策略和回测结果"
+    ],
+    "out_of_scope": [
+      "真实聚宽API对接",
+      "高级绩效指标（夏普、最大回撤等详细计算）",
+      "策略分享与社区功能",
+      "多用户权限管理",
+      "实时市场数据接入",
+      "策略回测的参数优化"
+    ],
+    "entities": [
+      {
+        "name": "User",
+        "description": "系统用户，用于本地认证和策略关联",
+        "fields": [
+          {
+            "name": "id",
+            "type": "integer",
+            "description": "用户唯一标识"
+          },
+          {
+            "name": "username",
+            "type": "string",
+            "description": "用户名"
+          },
+          {
+            "name": "password_hash",
+            "type": "string",
+            "description": "密码哈希"
+          }
+        ]
+      },
+      {
+        "name": "Strategy",
+        "description": "用户创建的策略，包含代码和基本信息",
+        "fields": [
+          {
+            "name": "id",
+            "type": "integer",
+            "description": "策略唯一标识"
+          },
+          {
+            "name": "user_id",
+            "type": "integer",
+            "description": "所属用户ID"
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "description": "策略名称"
+          },
+          {
+            "name": "description",
+            "type": "string",
+            "description": "策略描述"
+          },
+          {
+            "name": "code",
+            "type": "text",
+            "description": "聚宽平台可运行策略代码"
+          },
+          {
+            "name": "created_at",
+            "type": "datetime",
+            "description": "创建时间"
+          },
+          {
+            "name": "updated_at",
+            "type": "datetime",
+            "description": "最后更新时间"
+          },
+          {
+            "name": "bound_backtest_id",
+            "type": "integer",
+            "description": "绑定的绩效分析回测结果ID，null表示未绑定"
+          }
+        ]
+      },
+      {
+        "name": "BacktestResult",
+        "description": "回测结果记录，区分快速回测和完整绩效分析",
+        "fields": [
+          {
+            "name": "id",
+            "type": "integer",
+            "description": "回测结果唯一标识"
+          },
+          {
+            "name": "strategy_id",
+            "type": "integer",
+            "description": "关联策略ID（可空，仅完整回测后绑定）"
+          },
+          {
+            "name": "user_id",
+            "type": "integer",
+            "description": "所属用户ID"
+          },
+          {
+            "name": "type",
+            "type": "string",
+            "description": "回测类型：quick 或 full"
+          },
+          {
+            "name": "result_data",
+            "type": "json",
+            "description": "回测结果数据（模拟聚宽返回格式）"
+          },
+          {
+            "name": "created_at",
+            "type": "datetime",
+            "description": "创建时间"
+          }
+        ]
+      }
+    ],
+    "pages": [
+      {
+        "name": "主页（AI对话）",
+        "route": "/",
+        "purpose": "用户输入需求，AI生成策略代码并跳转编辑页",
+        "primary_actions": [
+          "输入策略需求文本",
+          "点击回车调用AI生成代码",
+          "显示生成结果",
+          "跳转到策略编辑页"
+        ]
+      },
+      {
+        "name": "策略编辑页",
+        "route": "/strategy/edit/:id",
+        "purpose": "编辑策略代码，继续AI对话修改，执行快速回测或完整回测绩效分析",
+        "primary_actions": [
+          "显示代码编辑器（左侧）",
+          "右侧Tab：多轮对话，快速回测结果",
+          "点击保存按钮: 保存策略到列表",
+          "点击快速回测: 运行快速回测并显示结果",
+          "点击运行回测绩效分析: 跳转到绩效分析页"
+        ]
+      },
+      {
+        "name": "策略列表页",
+        "route": "/strategies",
+        "purpose": "查看当前用户所有策略，支持新建和删除",
+        "primary_actions": [
+          "展示策略列表",
+          "点击策略进入编辑页",
+          "新建策略（跳转主页）",
+          "删除策略"
+        ]
+      },
+      {
+        "name": "回测结果列表页",
+        "route": "/backtest-results",
+        "purpose": "查看所有回测结果（包括快速回测和绩效分析）",
+        "primary_actions": [
+          "展示回测结果列表",
+          "点击查看详细数据",
+          "筛选按类型查看"
+        ]
+      },
+      {
+        "name": "策略绩效分析页",
+        "route": "/strategy/performance/:backtestId",
+        "purpose": "展示完整回测绩效分析的详细结果",
+        "primary_actions": [
+          "展示绩效指标图表",
+          "展示交易明细",
+          "返回策略列表或编辑页"
+        ]
+      }
+    ],
+    "workflows": [
+      "用户输入需求 -> AI生成策略代码 -> 自动跳转至策略编辑页（新策略）",
+      "在编辑页点击保存 -> 策略存入数据库 -> 提示保存成功",
+      "在编辑页点击快速回测 -> 调用回测引擎(模拟) -> 右侧Tab显示结果 -> 结果保存至回测结果列表（type=quick）",
+      "在编辑页点击运行回测绩效分析 -> 执行完整回测 -> 结果保存至回测结果列表(type=full)并绑定当前策略 -> 跳转至绩效分析页",
+      "从策略列表点击策略 -> 进入编辑页加载已有策略",
+      "用户注册/登录 -> 进入系统主页"
+    ],
+    "risks_and_assumptions": [
+      "聚宽标准策略代码格式采用简化模拟，真实聚宽API不可用时以本地JSON返回代替",
+      "大模型调用使用本地模拟或调用外部免费API（如OpenAI），需要配置API Key，若不可用则使用预设模板",
+      "快速回测和完整回测均用本地模拟回测引擎，不依赖聚宽SDK",
+      "用户认证采用JWT本地实现，数据库使用SQLite",
+      "本地演示时无需真实市场数据，回测结果使用静态数据模拟"
+    ],
+    "prd_document": {
+      "title": "AI策略系统产品需求文档",
+      "version": "v0.1",
+      "background": "量化交易领域，用户通常需要编写和回测策略代码，但学习曲线陡峭。通过AI自然语言对话生成策略代码，并内嵌编辑器与回测功能，可大幅降低门槛。本项目为MVP版本，聚焦核心功能闭环，确保本地可运行演示。",
+      "goals": [
+        "用户可通过自然语言描述快速生成聚宽格式策略代码",
+        "提供代码编辑、AI多轮对话修改、快速回测验证的交互环境",
+        "支持完整回测绩效分析并绑定策略",
+        "提供策略和回测结果的管理列表"
+      ],
+      "user_roles": [
+        "普通用户（已登录）"
+      ],
+      "business_modules": [
+        "AI对话生成模块",
+        "策略编辑与保存模块",
+        "回测执行模块（快速/完整）",
+        "绩效分析展示模块",
+        "策略与回测结果管理模块",
+        "用户认证模块"
+      ],
+      "page_requirements": [
+        {
+          "name": "主页（AI对话）",
+          "route": "/",
+          "purpose": "用户输入需求，AI生成策略代码并跳转编辑页",
+          "primary_actions": [
+            "输入策略需求文本",
+            "点击回车调用AI生成代码",
+            "显示生成结果",
+            "跳转到策略编辑页"
+          ]
+        },
+        {
+          "name": "策略编辑页",
+          "route": "/strategy/edit/:id",
+          "purpose": "编辑策略代码，继续AI对话修改，执行快速回测或完整回测绩效分析",
+          "primary_actions": [
+            "显示代码编辑器（左侧）",
+            "右侧Tab：多轮对话，快速回测结果",
+            "点击保存按钮: 保存策略到列表",
+            "点击快速回测: 运行快速回测并显示结果",
+            "点击运行回测绩效分析: 跳转到绩效分析页"
+          ]
+        },
+        {
+          "name": "策略列表页",
+          "route": "/strategies",
+          "purpose": "查看当前用户所有策略，支持新建和删除",
+          "primary_actions": [
+            "展示策略列表",
+            "点击策略进入编辑页",
+            "新建策略（跳转主页）",
+            "删除策略"
+          ]
+        },
+        {
+          "name": "回测结果列表页",
+          "route": "/backtest-results",
+          "purpose": "查看所有回测结果（包括快速回测和绩效分析）",
+          "primary_actions": [
+            "展示回测结果列表",
+            "点击查看详细数据",
+            "筛选按类型查看"
+          ]
+        },
+        {
+          "name": "策略绩效分析页",
+          "route": "/strategy/performance/:backtestId",
+          "purpose": "展示完整回测绩效分析的详细结果",
+          "primary_actions": [
+            "展示绩效指标图表",
+            "展示交易明细",
+            "返回策略列表或编辑页"
+          ]
+        }
+      ],
+      "interface_management": [
+        {
+          "module": "用户认证",
+          "name": "用户注册",
+          "method": "POST",
+          "path": "/api/auth/register",
+          "description": "注册新用户",
+          "request_fields": [
+            {
+              "name": "username",
+              "type": "string",
+              "description": "用户名"
+            },
+            {
+              "name": "password",
+              "type": "string",
+              "description": "密码"
+            }
+          ],
+          "response_fields": [
+            {
+              "name": "id",
+              "type": "integer",
+              "description": "用户ID"
+            },
+            {
+              "name": "username",
+              "type": "string",
+              "description": "用户名"
+            }
+          ],
+          "frontend_usage": "注册页面调用，创建账户",
+          "backend_notes": "密码使用bcrypt哈希存储，返回JWT token（可后续扩展）"
+        },
+        {
+          "module": "用户认证",
+          "name": "用户登录",
+          "method": "POST",
+          "path": "/api/auth/login",
+          "description": "登录获取token",
+          "request_fields": [
+            {
+              "name": "username",
+              "type": "string",
+              "description": "用户名"
+            },
+            {
+              "name": "password",
+              "type": "string",
+              "description": "密码"
+            }
+          ],
+          "response_fields": [
+            {
+              "name": "access_token",
+              "type": "string",
+              "description": "JWT access token"
+            },
+            {
+              "name": "token_type",
+              "type": "string",
+              "description": "bearer"
+            }
+          ],
+          "frontend_usage": "登录页面调用，保存token到本地存储",
+          "backend_notes": "验证密码并签发JWT，过期时间30分钟"
+        },
+        {
+          "module": "AI对话",
+          "name": "生成策略代码",
+          "method": "POST",
+          "path": "/api/chat/generate",
+          "description": "根据用户输入使用大模型生成策略代码",
+          "request_fields": [
+            {
+              "name": "prompt",
+              "type": "string",
+              "description": "用户需求文本"
+            },
+            {
+              "name": "history",
+              "type": "array",
+              "description": "多轮对话历史（可选）"
+            }
+          ],
+          "response_fields": [
+            {
+              "name": "code",
+              "type": "string",
+              "description": "生成的策略代码"
+            },
+            {
+              "name": "strategy_id",
+              "type": "integer",
+              "description": "新创建的策略ID"
+            }
+          ],
+          "frontend_usage": "主页输入框提交后调用，成功后跳转编辑页",
+          "backend_notes": "本地模拟返回固定模板代码，或调用大模型API。若使用模拟，返回预设双均线策略。"
+        },
+        {
+          "module": "策略管理",
+          "name": "保存策略",
+          "method": "POST",
+          "path": "/api/strategies",
+          "description": "创建或更新策略",
+          "request_fields": [
+            {
+              "name": "id",
+              "type": "integer",
+              "description": "策略ID，更新时提供; 新建时不传"
+            },
+            {
+              "name": "name",
+              "type": "string",
+              "description": "策略名称"
+            },
+            {
+              "name": "description",
+              "type": "string",
+              "description": "策略描述"
+            },
+            {
+              "name": "code",
+              "type": "string",
+              "description": "策略代码"
+            }
+          ],
+          "response_fields": [
+            {
+              "name": "id",
+              "type": "integer",
+              "description": "策略ID"
+            },
+            {
+              "name": "created_at",
+              "type": "string",
+              "description": "创建时间"
+            }
+          ],
+          "frontend_usage": "编辑页点击保存按钮调用，成功后提示并更新列表",
+          "backend_notes": "支持新建和更新，更新时根据id查找并覆盖code等信息"
+        },
+        {
+          "module": "策略管理",
+          "name": "获取策略列表",
+          "method": "GET",
+          "path": "/api/strategies",
+          "description": "获取当前用户的所有策略",
+          "request_fields": [],
+          "response_fields": [
+            {
+              "name": "strategies",
+              "type": "array",
+              "description": "策略对象数组，包含id,name,description,created_at"
+            }
+          ],
+          "frontend_usage": "策略列表页加载时调用",
+          "backend_notes": "根据当前登录用户ID查询"
+        },
+        {
+          "module": "策略管理",
+          "name": "获取策略详情",
+          "method": "GET",
+          "path": "/api/strategies/{id}",
+          "description": "获取单个策略的详细信息（含代码）",
+          "request_fields": [],
+          "response_fields": [
+            {
+              "name": "id",
+              "type": "integer"
+            },
+            {
+              "name": "name",
+              "type": "string"
+            },
+            {
+              "name": "description",
+              "type": "string"
+            },
+            {
+              "name": "code",
+              "type": "string"
+            },
+            {
+              "name": "created_at",
+              "type": "string"
+            },
+            {
+              "name": "bound_backtest_id",
+              "type": "integer"
+            }
+          ],
+          "frontend_usage": "编辑页打开时加载已有策略",
+          "backend_notes": "验证策略属于当前用户"
+        },
+        {
+          "module": "回测",
+          "name": "快速回测",
+          "method": "POST",
+          "path": "/api/backtest/quick",
+          "description": "执行快速回测并返回结果",
+          "request_fields": [
+            {
+              "name": "code",
+              "type": "string",
+              "description": "策略代码"
+            },
+            {
+              "name": "strategy_id",
+              "type": "integer",
+              "description": "关联策略ID（可为null）"
+            }
+          ],
+          "response_fields": [
+            {
+              "name": "backtest_id",
+              "type": "integer",
+              "description": "回测结果ID"
+            },
+            {
+              "name": "result",
+              "type": "object",
+              "description": "回测结果数据（模拟）"
+            }
+          ],
+          "frontend_usage": "编辑页点击快速回测按钮调用，结果显示在右侧tab",
+          "backend_notes": "本地模拟回测引擎，返回预设的模拟结果。结果保存到BacktestResult表，type为quick。"
+        },
+        {
+          "module": "回测",
+          "name": "运行回测绩效分析",
+          "method": "POST",
+          "path": "/api/backtest/analysis",
+          "description": "执行完整回测绩效分析，结果绑定到策略",
+          "request_fields": [
+            {
+              "name": "strategy_id",
+              "type": "integer",
+              "description": "策略ID（必须）"
+            },
+            {
+              "name": "code",
+              "type": "string",
+              "description": "策略代码"
+            }
+          ],
+          "response_fields": [
+            {
+              "name": "backtest_id",
+              "type": "integer",
+              "description": "回测结果ID"
+            },
+            {
+              "name": "redirect_url",
+              "type": "string",
+              "description": "绩效分析页URL"
+            }
+          ],
+          "frontend_usage": "编辑页点击运行回测绩效分析按钮调用，成功后跳转到绩效分析页",
+          "backend_notes": "执行更详细的回测（模拟），保存结果至BacktestResult（type=full），并更新strategy.bound_backtest_id。"
+        },
+        {
+          "module": "回测结果",
+          "name": "获取回测结果列表",
+          "method": "GET",
+          "path": "/api/backtest-results",
+          "description": "获取当前用户的所有回测结果（支持type过滤）",
+          "request_fields": [
+            {
+              "name": "type",
+              "type": "string",
+              "description": "可选过滤：quick/full"
+            }
+          ],
+          "response_fields": [
+            {
+              "name": "results",
+              "type": "array",
+              "description": "回测结果对象数组"
+            }
+          ],
+          "frontend_usage": "回测结果列表页加载",
+          "backend_notes": "根据user_id查询，支持按type过滤"
+        },
+        {
+          "module": "回测结果",
+          "name": "获取绩效分析详情",
+          "method": "GET",
+          "path": "/api/backtest-results/{id}",
+          "description": "获取单个回测结果的详细数据",
+          "request_fields": [],
+          "response_fields": [
+            {
+              "name": "id",
+              "type": "integer"
+            },
+            {
+              "name": "type",
+              "type": "string"
+            },
+            {
+              "name": "result_data",
+              "type": "object"
+            },
+            {
+              "name": "strategy_id",
+              "type": "integer"
+            }
+          ],
+          "frontend_usage": "绩效分析页加载详情",
+          "backend_notes": "返回结果数据，包括绩效指标、交易记录等"
+        },
+        {
+          "module": "AI对话",
+          "name": "多轮对话",
+          "method": "POST",
+          "path": "/api/chat/continue",
+          "description": "在编辑页继续AI对话，修改策略代码",
+          "request_fields": [
+            {
+              "name": "strategy_id",
+              "type": "integer",
+              "description": "当前策略ID"
+            },
+            {
+              "name": "message",
+              "type": "string",
+              "description": "用户新的需求或修改指令"
+            },
+            {
+              "name": "history",
+              "type": "array",
+              "description": "对话历史"
+            }
+          ],
+          "response_fields": [
+            {
+              "name": "code",
+              "type": "string",
+              "description": "更新后的策略代码"
+            },
+            {
+              "name": "reply",
+              "type": "string",
+              "description": "AI回复文本"
+            }
+          ],
+          "frontend_usage": "编辑页右侧对话Tab，发送消息后更新代码编辑器内容",
+          "backend_notes": "模拟返回或调用大模型，更新策略代码（注意不自动保存）"
+        }
+      ],
+      "data_requirements": [
+        "用户表：存储用户认证信息",
+        "策略表：存储策略元数据和代码，外键关联用户",
+        "回测结果表：存储回测类型、结果数据，外键关联策略（可空）和用户",
+        "所有表使用SQLite存储",
+        "回测结果数据以JSON格式存储，便于扩展"
+      ],
+      "acceptance_criteria": [
+        "用户注册登录后，主页显示AI对话输入框",
+        "输入“生成一个双均线策略”，回车后显示生成的代码并跳转编辑页（代码预填）",
+        "编辑页左侧显示代码编辑器，右侧默认显示多轮对话tab，可切换至快速回测结果tab",
+        "点击保存按钮，策略保存至列表，提示成功",
+        "点击快速回测，右侧tab显示模拟回测结果（含净值曲线等图表占位）",
+        "点击运行回测绩效分析，跳转至绩效分析页，显示详细绩效指标（收益率、最大回撤、夏普等）",
+        "策略列表页显示所有已保存策略，点击可编辑",
+        "回测结果列表页显示所有回测记录，可按类型筛选",
+        "所有操作需登录认证，未登录跳转登录页"
+      ],
+      "frontend_handoff": [
+        "使用React/Vite + TypeScript",
+        "页面路由：首页(/)、策略编辑页(/strategy/edit/:id)、策略列表(/strategies)、回测结果(/backtest-results)、绩效分析(/strategy/performance/:backtestId)、登录(/login)、注册(/register)",
+        "AI对话输入框在主页，回车后调用POST /api/chat/generate",
+        "代码编辑器可使用CodeMirror或Monaco Editor，语言设为python",
+        "多轮对话tab：消息列表+输入框，调用POST /api/chat/continue",
+        "快速回测结果tab：展示表格/图表数据",
+        "绩效分析页：展示多个指标卡片、图表（如回撤曲线、每月收益热力图）",
+        "认证：登录后保存token到localStorage，axios拦截器添加Authorization头",
+        "本地启动mock数据时，可先不依赖后端，使用静态json数据"
+      ],
+      "backend_handoff": [
+        "使用FastAPI, SQLite (SQLAlchemy ORM)",
+        "实现JWT认证中间件，所有接口（除注册登录）需验证token",
+        "数据库模型：User, Strategy, BacktestResult",
+        "回测引擎：提供快速回测和完整回测的模拟实现，结果以JSON返回",
+        "AI对话：可选集成OpenAI API或使用本地模拟返回（开发阶段建议模拟）",
+        "接口文档建议使用FastAPI自动生成Swagger",
+        "注意CORS配置，允许前端localhost:5173访问",
+        "提供初始化数据库的脚本"
+      ]
+    }
+  },
+  "ui_spec": {
+    "design_tone": "专业、数据密集、高效、无营销风格，符合内部业务系统特征",
+    "layout": "侧边栏主导航 + 顶部用户信息栏 + 主内容区域，侧边栏固定宽度220px，顶部栏高度56px",
+    "navigation": [
+      "首页 (/)",
+      "策略列表 (/strategies)",
+      "回测结果 (/backtest-results)"
+    ],
+    "component_specs": [
+      {
+        "page": "主页（AI对话）",
+        "components": [
+          "大型文本输入框",
+          "发送/生成按钮（回车触发）",
+          "加载指示器（spin）",
+          "生成代码预览区域（代码块）",
+          "策略名称自动生成提示"
+        ],
+        "states": [
+          "初始状态：输入框空白，提示文字'输入策略需求...'",
+          "加载状态：输入框禁用，显示spinner，按钮文字'生成中'",
+          "成功状态：预览区域显示生成的代码片段，自动跳转倒计时或点击跳转",
+          "错误状态：显示错误提示，输入框恢复可用"
+        ],
+        "interactions": [
+          "用户输入文本后按回车或点击按钮",
+          "调用POST /api/chat/generate",
+          "生成成功后自动跳转到策略编辑页（新策略）",
+          "失败时显示错误消息"
+        ]
+      },
+      {
+        "page": "策略编辑页",
+        "components": [
+          "代码编辑器（Monaco Editor，Python语言模式）",
+          "右侧Tab组件（多轮对话 / 快速回测结果）",
+          "多轮对话：消息列表 + 输入框 + 发送按钮",
+          "快速回测结果：展示摘要指标卡片 + 净值曲线占位图",
+          "顶部操作按钮：保存、快速回测、运行回测绩效分析"
+        ],
+        "states": [
+          "加载策略中：整体遮罩spinner",
+          "编辑状态：代码可编辑，右侧tab默认显示多轮对话",
+          "保存中：保存按钮loading，禁用其他操作",
+          "快速回测运行中：快速回测按钮loading，右侧tab自动切换至结果",
+          "回测绩效分析运行中：按钮loading，完成后跳转绩效分析页"
+        ],
+        "interactions": [
+          "保存按钮调用POST /api/strategies (id存在则更新)",
+          "快速回测按钮调用POST /api/backtest/quick",
+          "运行回测绩效分析按钮调用POST /api/backtest/analysis",
+          "多轮对话输入消息调用POST /api/chat/continue，返回代码更新编辑器",
+          "Tab切换显示对应内容"
+        ]
+      },
+      {
+        "page": "策略列表页",
+        "components": [
+          "顶部操作栏：新建策略按钮（跳转首页）",
+          "策略列表表格（列：名称、描述、创建时间、操作）",
+          "操作列：编辑按钮（跳转编辑页）、删除按钮（确认对话框）"
+        ],
+        "states": [
+          "加载中：表格骨架屏",
+          "空状态：显示提示'暂无策略，点击新建'",
+          "正常显示：数据列表",
+          "删除确认：弹窗确认"
+        ],
+        "interactions": [
+          "页面加载时调用GET /api/strategies",
+          "点击编辑跳转到/strategy/edit/:id",
+          "点击新建跳转到/",
+          "点击删除弹出确认，确认后调用DELETE /api/strategies/:id（需后端支持，PRD中未明确但合理）"
+        ]
+      },
+      {
+        "page": "回测结果列表页",
+        "components": [
+          "过滤下拉框（全部 / 快速回测 / 绩效分析）",
+          "回测结果表格（列：类型、关联策略名、创建时间、操作）",
+          "操作列：查看详情按钮（跳转至绩效分析页或弹窗）"
+        ],
+        "states": [
+          "加载中：表格骨架屏",
+          "空状态：显示'暂无回测结果'",
+          "正常显示：数据列表，类型标签（quick/full）"
+        ],
+        "interactions": [
+          "页面加载时调用GET /api/backtest-results（不带过滤）",
+          "切换过滤时重新请求带type参数",
+          "点击查看详情：若type=full跳转到/strategy/performance/:id，若type=quick可弹窗显示摘要"
+        ]
+      },
+      {
+        "page": "策略绩效分析页",
+        "components": [
+          "返回按钮（返回上一页或策略列表）",
+          "指标卡片区域：总收益率、年化收益率、最大回撤、夏普比率等",
+          "图表区域：净值曲线图、回撤曲线图、月度收益热力图",
+          "交易明细表格（日期、操作、价格、数量等）"
+        ],
+        "states": [
+          "加载中：图表骨架屏",
+          "正常显示：指标数值、图表渲染、表格数据",
+          "错误状态：数据加载失败提示"
+        ],
+        "interactions": [
+          "页面加载时调用GET /api/backtest-results/{backtestId}",
+          "返回按钮使用window.history.back()或指定跳转",
+          "图表自适应容器大小"
+        ]
+      }
+    ],
+    "ui_design_drafts": [
+      {
+        "page": "主页（AI对话）",
+        "route": "/",
+        "is_new_page": true,
+        "layout_wireframe": "顶部全局导航栏（侧边栏+顶部栏），主区域居中，宽800px。上方显示LOGO和简短说明，中间一个大型输入框（高度120px），下方预留生成代码预览区域（初始隐藏）。",
+        "key_components": [
+          "文本输入框（带placeholder：'描述你的策略需求，例如：生成一个双均线策略'）",
+          "发送按钮（与输入框融为一体，右侧）",
+          "加载状态指示器（输入框内右侧或覆盖层）",
+          "代码预览卡片（生成后显示代码摘要和'正在跳转...'）"
+        ],
+        "interaction_states": [
+          "输入框focus时边框高亮",
+          "输入时按钮图标变为可点击",
+          "按回车或点击发送：输入框禁用，显示spinner",
+          "生成成功：预览区域淡入，显示代码片段，2秒后自动跳转编辑页",
+          "生成失败：预览区域显示错误红色提示"
+        ],
+        "visual_handoff": [
+          "背景色：#F5F7FA，卡片圆角8px，阴影",
+          "输入框高度120px，字体16px，内边距16px",
+          "按钮颜色：#1890FF，悬停变深",
+          "代码块使用等宽字体，背景#282C34，文字#ABB2BF"
+        ],
+        "frontend_handoff": [
+          "使用受控组件管理输入框",
+          "调用POST /api/chat/generate，携带{prompt}",
+          "成功响应后获取strategy_id和code，使用React Router的useNavigate跳转至/strategy/edit/{id}",
+          "错误处理使用antd的message或notification"
+        ]
+      },
+      {
+        "page": "策略编辑页",
+        "route": "/strategy/edit/:id",
+        "is_new_page": true,
+        "layout_wireframe": "左右两栏布局，左侧占比60%为代码编辑器，右侧占比40%为Tab面板。顶部操作栏：保存、快速回测、运行回测绩效分析三个按钮并排。右侧Tab默认'多轮对话'，第二个Tab'快速回测结果'。",
+        "key_components": [
+          "Monaco Editor组件（Python语言，行号，折叠）",
+          "Tab切换组件（antd Tabs）",
+          "多轮对话：消息列表（滚动），输入框+发送按钮",
+          "快速回测结果：指标摘要（收益率、最大回撤等），放置一张占位图表",
+          "三个操作按钮：保存（主要）、快速回测（默认）、分析（危险）"
+        ],
+        "interaction_states": [
+          "加载策略时整个页面遮罩spinner",
+          "编辑器内容变化时顶部'保存'按钮可点击",
+          "保存时按钮loading，成功后提示，失败error",
+          "快速回测时按钮loading，右侧Tab自动切换到结果并显示数据",
+          "运行分析时按钮loading，完成后跳转到绩效分析页"
+        ],
+        "visual_handoff": [
+          "编辑器区域高度全屏减去顶部栏和底部边距",
+          "顶部按钮组间距8px，保存按钮蓝色，快速回测绿色，分析橙色",
+          "多轮对话：消息气泡，用户靠右蓝色，AI靠左灰色",
+          "回测结果：使用Card组件展示指标，图表使用nivo或recharts"
+        ],
+        "frontend_handoff": [
+          "路由参数id用于获取策略详情（GET /api/strategies/{id}）",
+          "编辑器使用@monaco-editor/react，language='python'",
+          "保存调用POST /api/strategies，传递id、name、description、code",
+          "快速回测调用POST /api/backtest/quick，传递code和strategy_id",
+          "分析调用POST /api/backtest/analysis，传递strategy_id和code",
+          "多轮对话调用POST /api/chat/continue，返回code后更新编辑器内容（不自动保存）"
+        ]
+      },
+      {
+        "page": "策略列表页",
+        "route": "/strategies",
+        "is_new_page": true,
+        "layout_wireframe": "顶部操作栏：左侧标题'我的策略'，右侧新建按钮（跳转首页）。下方为策略列表表格，占满剩余高度。",
+        "key_components": [
+          "按钮：新建策略（antd Button type='primary'）",
+          "Table组件（antd）：列：名称、描述、创建时间、操作（编辑/删除）",
+          "删除确认弹窗（antd Modal）"
+        ],
+        "interaction_states": [
+          "加载数据时表格显示loading或骨架屏",
+          "空数据时显示Empty状态组件",
+          "点击编辑跳转到对应编辑页",
+          "点击删除弹出确认框，确认后从列表移除并刷新"
+        ],
+        "visual_handoff": [
+          "表格斑马纹行，操作列图标按钮",
+          "新建按钮图标为+，位置右上角",
+          "删除按钮红色图标，编辑蓝色图标",
+          "时间格式：YYYY-MM-DD HH:mm"
+        ],
+        "frontend_handoff": [
+          "页面加载调用GET /api/strategies",
+          "删除调用DELETE /api/strategies/{id}（需后端实现）",
+          "点击编辑使用useNavigate/useHistory",
+          "新建跳转至'/'"
+        ]
+      },
+      {
+        "page": "回测结果列表页",
+        "route": "/backtest-results",
+        "is_new_page": true,
+        "layout_wireframe": "顶部：标题'回测结果'，一个下拉过滤器（全部/快速回测/绩效分析）。下方为结果列表表格。",
+        "key_components": [
+          "Select过滤器（antd）",
+          "Table组件：列：类型（标签）、关联策略名、创建时间、操作（查看详情）"
+        ],
+        "interaction_states": [
+          "页面加载时获取全部结果",
+          "切换过滤器重新获取对应类型结果",
+          "查看详情：若type='full'跳转绩效分析页；若type='quick'使用Drawer或Modal展示摘要"
+        ],
+        "visual_handoff": [
+          "类型列使用Tag：quick为蓝色，full为绿色",
+          "查看详情按钮为链接样式",
+          "过滤器与标题同行，靠右"
+        ],
+        "frontend_handoff": [
+          "调用GET /api/backtest-results?type=xxx",
+          "type='quick'时详情可调用GET /api/backtest-results/{id}展示",
+          "type='full'时跳转到/strategy/performance/{id}"
+        ]
+      },
+      {
+        "page": "策略绩效分析页",
+        "route": "/strategy/performance/:backtestId",
+        "is_new_page": true,
+        "layout_wireframe": "顶部：返回按钮（← 返回）和标题'绩效分析'。主体分上下：上部分为指标卡片行（4个卡片并排），中部分为两个图表（净值曲线和回撤曲线）左右并排，下部分为交易明细表格。",
+        "key_components": [
+          "返回按钮（antd Button type='link'）",
+          "指标卡片（antd Card）：总收益率、年化收益率、最大回撤、夏普比率",
+          "图表组件（recharts LineChart for 净值曲线，AreaChart for 回撤曲线）",
+          "交易明细Table：日期、操作（买入/卖出）、价格、数量、盈亏"
+        ],
+        "interaction_states": [
+          "加载中：卡片、图表、表格均显示骨架屏或loading",
+          "数据加载完成后渲染图表（响应式宽度）",
+          "返回按钮点击回到上一页或策略列表"
+        ],
+        "visual_handoff": [
+          "指标卡片字体加粗，数值使用大号字体，正收益绿色，负收益红色",
+          "图表使用750px高度，曲线颜色：净值蓝色，回撤红色",
+          "交易表格默认分页每页20行"
+        ],
+        "frontend_handoff": [
+          "调用GET /api/backtest-results/{backtestId}获取result_data",
+          "指标数据从result_data中提取",
+          "图表数据需转换格式（x:日期, y:值）",
+          "resize时图表自适应，使用ResizeObserver或组件响应式"
+        ]
+      }
+    ],
+    "visual_rules": [
+      "主色：#1890FF (蓝色)，辅助色：#52C41A (绿色成功)、#FAAD14 (警告)、#FF4D4F (危险)",
+      "背景色：#F0F2F5，卡片背景白色，卡片阴影 0 2px 8px rgba(0,0,0,0.08)",
+      "字体：-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto，默认14px，行高1.5",
+      "表格：斑马纹（奇数行#FAFAFA），表头背景#FAFAFA，边框#F0F0F0",
+      "间距：页面内容左右padding 24px，顶部16px",
+      "按钮：默认border-radius 4px，主要按钮填充色，次要按钮边框"
+    ],
+    "accessibility_rules": [
+      "所有表单控件必须有对应的label或aria-label",
+      "颜色对比度满足WCAG AA标准（文本与背景4.5:1）",
+      "交互元素（按钮、链接）支持键盘操作（Tab导航，Enter触发）",
+      "加载状态使用aria-busy或role='alert'",
+      "图表提供文字摘要（aria-label描述数据要点）",
+      "弹窗使用role='dialog'并管理焦点"
+    ]
+  },
+  "frontend_spec": {
+    "framework": "React",
+    "routes": [
+      "/",
+      "/strategy/edit/:id",
+      "/strategies",
+      "/backtest-results",
+      "/strategy/performance/:backtestId",
+      "/login",
+      "/register"
+    ],
+    "components": [
+      "LargeTextInput",
+      "GenerateButton",
+      "CodePreview",
+      "LoadingSpinner",
+      "CodeEditor (Monaco)",
+      "MultiTurnChat",
+      "QuickBacktestResults",
+      "Tabs",
+      "SaveButton",
+      "QuickBacktestButton",
+      "AnalysisButton",
+      "StrategyTable",
+      "BacktestResultsTable",
+      "TypeFilterSelect",
+      "MetricCard",
+      "NetValueChart",
+      "DrawdownChart",
+      "TransactionTable",
+      "AuthForms",
+      "DeleteConfirmModal",
+      "EmptyState"
+    ],
+    "api_dependencies": [
+      "/api/auth/register",
+      "/api/auth/login",
+      "/api/chat/generate",
+      "/api/strategies",
+      "/api/strategies/{id}",
+      "/api/backtest/quick",
+      "/api/backtest/analysis",
+      "/api/backtest-results",
+      "/api/backtest-results/{id}",
+      "/api/chat/continue"
+    ],
+    "state_model": [
+      "user (auth token, user info)",
+      "strategies (list of strategies)",
+      "currentStrategy (single strategy details & code)",
+      "backtestResults (list of backtest results)",
+      "currentBacktestDetail (single result detail)",
+      "chatHistory (messages array)",
+      "loadingStates (page loading, saving, backtesting, etc.)",
+      "errorMessages (api errors)"
+    ],
+    "validation_rules": [
+      "Username required, min 3 characters",
+      "Password required, min 6 characters",
+      "Strategy name required when saving",
+      "Prompt input must not be empty before generate",
+      "Message input must not be empty before send in chat",
+      "Code editor content must be valid Python (basic syntax check optional)"
+    ],
+    "files_to_generate": [
+      "src/App.tsx",
+      "src/main.tsx",
+      "src/pages/HomePage.tsx",
+      "src/pages/EditPage.tsx",
+      "src/pages/StrategiesPage.tsx",
+      "src/pages/BacktestResultsPage.tsx",
+      "src/pages/PerformancePage.tsx",
+      "src/pages/LoginPage.tsx",
+      "src/pages/RegisterPage.tsx",
+      "src/components/Sidebar.tsx",
+      "src/components/TopBar.tsx",
+      "src/components/CodeEditor.tsx",
+      "src/components/ChatPanel.tsx",
+      "src/components/QuickBacktestTab.tsx",
+      "src/components/StrategyTable.tsx",
+      "src/components/BacktestResultTable.tsx",
+      "src/components/MetricCard.tsx",
+      "src/components/Charts/NetValueChart.tsx",
+      "src/components/Charts/DrawdownChart.tsx",
+      "src/components/EmptyState.tsx",
+      "src/components/LoadingSpinner.tsx",
+      "src/components/DeleteConfirmModal.tsx",
+      "src/services/api.ts",
+      "src/store/authStore.ts",
+      "src/store/strategyStore.ts",
+      "src/store/backtestStore.ts",
+      "src/utils/validation.ts",
+      "src/utils/formatters.ts"
+    ]
+  },
+  "backend_spec": {
+    "framework": "FastAPI",
+    "database": "SQLite",
+    "services": [
+      "auth_service",
+      "strategy_service",
+      "backtest_service",
+      "chat_service"
+    ],
+    "models": [
+      "User",
+      "Strategy",
+      "BacktestResult"
+    ],
+    "api_contract": {
+      "base_url": "/api",
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/api/auth/register",
+          "purpose": "Register a new user account",
+          "request_schema": {
+            "username": "string",
+            "password": "string"
+          },
+          "response_schema": {
+            "id": "integer",
+            "username": "string"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/api/auth/login",
+          "purpose": "Login and receive JWT token",
+          "request_schema": {
+            "username": "string",
+            "password": "string"
+          },
+          "response_schema": {
+            "access_token": "string",
+            "token_type": "string"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/api/chat/generate",
+          "purpose": "Generate strategy code from user prompt using AI",
+          "request_schema": {
+            "prompt": "string",
+            "history": "array"
+          },
+          "response_schema": {
+            "code": "string",
+            "strategy_id": "integer"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/api/strategies",
+          "purpose": "Save (create or update) a strategy",
+          "request_schema": {
+            "id": "integer",
+            "name": "string",
+            "description": "string",
+            "code": "string"
+          },
+          "response_schema": {
+            "id": "integer",
+            "created_at": "string"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/api/strategies",
+          "purpose": "List all strategies for the current user",
+          "request_schema": {},
+          "response_schema": {
+            "strategies": "array"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/api/strategies/{id}",
+          "purpose": "Get detailed info of a single strategy",
+          "request_schema": {},
+          "response_schema": {
+            "id": "integer",
+            "name": "string",
+            "description": "string",
+            "code": "string",
+            "created_at": "string",
+            "bound_backtest_id": "integer"
+          }
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/strategies/{id}",
+          "purpose": "Delete a strategy by id",
+          "request_schema": {},
+          "response_schema": {}
+        },
+        {
+          "method": "POST",
+          "path": "/api/backtest/quick",
+          "purpose": "Execute quick backtest and return result",
+          "request_schema": {
+            "code": "string",
+            "strategy_id": "integer"
+          },
+          "response_schema": {
+            "backtest_id": "integer",
+            "result": "object"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/api/backtest/analysis",
+          "purpose": "Execute full backtest performance analysis, bind to strategy",
+          "request_schema": {
+            "strategy_id": "integer",
+            "code": "string"
+          },
+          "response_schema": {
+            "backtest_id": "integer",
+            "redirect_url": "string"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/api/backtest-results",
+          "purpose": "List backtest results for current user, optional type filter",
+          "request_schema": {
+            "type": "string"
+          },
+          "response_schema": {
+            "results": "array"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/api/backtest-results/{id}",
+          "purpose": "Get detailed backtest result including performance data",
+          "request_schema": {},
+          "response_schema": {
+            "id": "integer",
+            "type": "string",
+            "result_data": "object",
+            "strategy_id": "integer"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/api/chat/continue",
+          "purpose": "Continue multi-turn AI dialogue to modify strategy code",
+          "request_schema": {
+            "strategy_id": "integer",
+            "message": "string",
+            "history": "array"
+          },
+          "response_schema": {
+            "code": "string",
+            "reply": "string"
+          }
+        }
+      ],
+      "shared_types": [
+        {
+          "User": "object with fields id, username, password_hash"
+        },
+        {
+          "Strategy": "object with fields id, user_id, name, description, code, created_at, updated_at, bound_backtest_id"
+        },
+        {
+          "BacktestResult": "object with fields id, strategy_id, user_id, type, result_data, created_at"
+        }
+      ],
+      "error_shape": {
+        "detail": "string",
+        "error_code": "string"
+      }
+    },
+    "environment_variables": [
+      "DATABASE_URL=sqlite:///./ai_strategy.db",
+      "JWT_SECRET_KEY=your-secret-key",
+      "JWT_ALGORITHM=HS256",
+      "JWT_EXPIRATION_MINUTES=30",
+      "OPENAI_API_KEY=optional",
+      "CORS_ORIGINS=http://localhost:5173"
+    ],
+    "files_to_generate": [
+      "app/main.py",
+      "app/database.py",
+      "app/models.py",
+      "app/schemas.py",
+      "app/auth.py",
+      "app/routers/auth.py",
+      "app/routers/chat.py",
+      "app/routers/strategies.py",
+      "app/routers/backtest.py",
+      "app/services/backtest_engine.py",
+      "app/services/ai_service.py",
+      "requirements.txt"
+    ]
+  },
+  "integration_spec": {
+    "run_commands": [
+      "cd backend && python -m venv venv",
+      "source backend/venv/bin/activate && cd backend && pip install -r requirements.txt",
+      "cd backend && python -c \"from app.database import init_db; init_db()\"",
+      "cd backend && uvicorn app.main:app --reload --port 8000",
+      "cd frontend && npm install",
+      "cd frontend && npm run dev"
+    ],
+    "verification_steps": [
+      "PRD验收: 访问 http://localhost:5173，未登录应跳转至登录页",
+      "PRD验收: 注册新用户（用户名/密码），成功后自动登录跳转至首页",
+      "PRD验收: 首页输入'生成一个双均线策略'，回车后显示代码预览并自动跳转到编辑页（id为新策略）",
+      "PRD验收: 编辑页左侧显示代码编辑器（Python），右侧默认多轮对话Tab",
+      "PRD验收: 点击保存按钮，策略保存至列表，提示成功",
+      "PRD验收: 点击快速回测，右侧Tab切换至快速回测结果，显示模拟指标与图表占位",
+      "PRD验收: 点击运行回测绩效分析，跳转至绩效分析页，显示收益率、最大回撤、夏普等指标及曲线图",
+      "PRD验收: 策略列表页显示所有保存策略，支持点击编辑、删除",
+      "PRD验收: 回测结果列表页显示所有回测记录，支持按类型过滤（quick/full）",
+      "接口联调: POST /api/auth/register 注册接口验证",
+      "接口联调: POST /api/auth/login 登录接口获取token，后续请求头携带Authorization",
+      "接口联调: POST /api/chat/generate 生成策略接口验证返回code和strategy_id",
+      "接口联调: GET /api/strategies 获取策略列表",
+      "接口联调: POST /api/backtest/quick 快速回测接口返回模拟结果",
+      "接口联调: GET /api/backtest-results/{id} 获取绩效分析详情",
+      "页面交互: 编辑页多轮对话发送消息后编辑器代码更新并显示AI回复",
+      "页面交互: 绩效分析页图表响应式调整，交易明细表格分页",
+      "页面交互: 删除策略弹出确认对话框，确认后列表更新",
+      "页面交互: 未登录访问任何页面跳转至登录页，登录后重定向"
+    ],
+    "file_tree": [
+      "backend/",
+      "backend/app/",
+      "backend/app/main.py",
+      "backend/app/database.py",
+      "backend/app/models.py",
+      "backend/app/schemas.py",
+      "backend/app/auth.py",
+      "backend/app/routers/",
+      "backend/app/routers/auth.py",
+      "backend/app/routers/chat.py",
+      "backend/app/routers/strategies.py",
+      "backend/app/routers/backtest.py",
+      "backend/app/services/",
+      "backend/app/services/backtest_engine.py",
+      "backend/app/services/ai_service.py",
+      "backend/requirements.txt",
+      "frontend/",
+      "frontend/src/",
+      "frontend/src/App.tsx",
+      "frontend/src/main.tsx",
+      "frontend/src/pages/",
+      "frontend/src/pages/HomePage.tsx",
+      "frontend/src/pages/EditPage.tsx",
+      "frontend/src/pages/StrategiesPage.tsx",
+      "frontend/src/pages/BacktestResultsPage.tsx",
+      "frontend/src/pages/PerformancePage.tsx",
+      "frontend/src/pages/LoginPage.tsx",
+      "frontend/src/pages/RegisterPage.tsx",
+      "frontend/src/components/",
+      "frontend/src/components/Sidebar.tsx",
+      "frontend/src/components/TopBar.tsx",
+      "frontend/src/components/CodeEditor.tsx",
+      "frontend/src/components/ChatPanel.tsx",
+      "frontend/src/components/QuickBacktestTab.tsx",
+      "frontend/src/components/StrategyTable.tsx",
+      "frontend/src/components/BacktestResultTable.tsx",
+      "frontend/src/components/MetricCard.tsx",
+      "frontend/src/components/Charts/",
+      "frontend/src/components/Charts/NetValueChart.tsx",
+      "frontend/src/components/Charts/DrawdownChart.tsx",
+      "frontend/src/components/EmptyState.tsx",
+      "frontend/src/components/LoadingSpinner.tsx",
+      "frontend/src/components/DeleteConfirmModal.tsx",
+      "frontend/src/services/api.ts",
+      "frontend/src/store/",
+      "frontend/src/store/authStore.ts",
+      "frontend/src/store/strategyStore.ts",
+      "frontend/src/store/backtestStore.ts",
+      "frontend/src/utils/",
+      "frontend/src/utils/validation.ts",
+      "frontend/src/utils/formatters.ts"
+    ],
+    "demo_script": [
+      "1. 启动后端：source backend/venv/bin/activate && cd backend && uvicorn app.main:app --reload",
+      "2. 启动前端：cd frontend && npm run dev",
+      "3. 打开浏览器 http://localhost:5173，自动跳转至登录页",
+      "4. 点击'注册'，输入用户名 testuser，密码 123456，点击注册，自动登录跳转至首页",
+      "5. 在首页输入框输入'生成一个双均线策略'，按回车，看到代码预览，2秒后自动跳转至策略编辑页（新策略ID）",
+      "6. 编辑页左侧显示代码编辑器，右侧显示多轮对话Tab。在对话输入框输入'把均线周期改为10和30'，发送，观察代码更新",
+      "7. 点击顶部'保存'按钮，提示保存成功",
+      "8. 点击'快速回测'按钮，右侧Tab自动切换到快速回测结果，显示收益率等指标与净值曲线占位图",
+      "9. 点击'运行回测绩效分析'按钮，页面跳转至绩效分析页，展示4个指标卡片（总收益率、年化、最大回撤、夏普）、净值曲线与回撤曲线图、交易明细表格",
+      "10. 点击导航栏'策略列表'，显示之前保存的策略，点击编辑可返回编辑页",
+      "11. 点击导航栏'回测结果'，显示所有回测记录，可按类型过滤（快速/绩效分析）",
+      "12. 点击某个绩效分析回测的'查看详情'，再次进入绩效分析页",
+      "13. 在策略列表页点击删除按钮，确认删除后策略消失"
+    ],
+    "generated_files": [
+      {
+        "path": "backend/app/main.py",
+        "purpose": "FastAPI应用入口，包括CORS配置、路由注册、启动事件"
+      },
+      {
+        "path": "backend/app/database.py",
+        "purpose": "数据库连接配置、SQLAlchemy引擎、SessionLocal、Base声明"
+      },
+      {
+        "path": "backend/app/models.py",
+        "purpose": "SQLAlchemy模型定义：User, Strategy, BacktestResult"
+      },
+      {
+        "path": "backend/app/schemas.py",
+        "purpose": "Pydantic模型：请求/响应数据校验与文档"
+      },
+      {
+        "path": "backend/app/auth.py",
+        "purpose": "JWT认证逻辑：密码哈希、token生成与验证、依赖注入"
+      },
+      {
+        "path": "backend/app/routers/auth.py",
+        "purpose": "认证路由：/api/auth/register, /api/auth/login"
+      },
+      {
+        "path": "backend/app/routers/chat.py",
+        "purpose": "AI对话路由：/api/chat/generate, /api/chat/continue"
+      },
+      {
+        "path": "backend/app/routers/strategies.py",
+        "purpose": "策略管理路由：CRUD /api/strategies"
+      },
+      {
+        "path": "backend/app/routers/backtest.py",
+        "purpose": "回测路由：/api/backtest/quick, /api/backtest/analysis, /api/backtest-results"
+      },
+      {
+        "path": "backend/app/services/backtest_engine.py",
+        "purpose": "模拟回测引擎：快速回测与完整绩效分析逻辑，返回预设JSON"
+      },
+      {
+        "path": "backend/app/services/ai_service.py",
+        "purpose": "AI服务：调用大模型或本地模板生成/修改策略代码"
+      },
+      {
+        "path": "backend/requirements.txt",
+        "purpose": "Python依赖清单：fastapi, uvicorn, sqlalchemy, pyjwt, bcrypt等"
+      },
+      {
+        "path": "frontend/src/App.tsx",
+        "purpose": "React应用根组件，配置路由、全局状态、认证拦截"
+      },
+      {
+        "path": "frontend/src/main.tsx",
+        "purpose": "入口文件，渲染App到DOM"
+      },
+      {
+        "path": "frontend/src/pages/HomePage.tsx",
+        "purpose": "主页：AI对话输入框，调用生成接口，跳转编辑页"
+      },
+      {
+        "path": "frontend/src/pages/EditPage.tsx",
+        "purpose": "策略编辑页：代码编辑器、右侧Tab（多轮对话/快速回测结果）、操作按钮"
+      },
+      {
+        "path": "frontend/src/pages/StrategiesPage.tsx",
+        "purpose": "策略列表页：展示表格，支持新建/编辑/删除"
+      },
+      {
+        "path": "frontend/src/pages/BacktestResultsPage.tsx",
+        "purpose": "回测结果列表页：支持类型过滤，查看详情"
+      },
+      {
+        "path": "frontend/src/pages/PerformancePage.tsx",
+        "purpose": "绩效分析页：指标卡片、净值曲线、回撤曲线、交易明细"
+      },
+      {
+        "path": "frontend/src/pages/LoginPage.tsx",
+        "purpose": "登录页面：表单输入，调用登录API，保存token"
+      },
+      {
+        "path": "frontend/src/pages/RegisterPage.tsx",
+        "purpose": "注册页面：表单输入，调用注册API，自动登录"
+      },
+      {
+        "path": "frontend/src/components/Sidebar.tsx",
+        "purpose": "侧边栏导航：首页、策略列表、回测结果"
+      },
+      {
+        "path": "frontend/src/components/TopBar.tsx",
+        "purpose": "顶部栏：用户信息、退出登录"
+      },
+      {
+        "path": "frontend/src/components/CodeEditor.tsx",
+        "purpose": "基于Monaco Editor的代码编辑器组件，Python语言"
+      },
+      {
+        "path": "frontend/src/components/ChatPanel.tsx",
+        "purpose": "多轮对话面板：消息列表、输入框、发送按钮"
+      },
+      {
+        "path": "frontend/src/components/QuickBacktestTab.tsx",
+        "purpose": "快速回测结果Tab：指标摘要、图表占位"
+      },
+      {
+        "path": "frontend/src/components/StrategyTable.tsx",
+        "purpose": "策略列表表格组件"
+      },
+      {
+        "path": "frontend/src/components/BacktestResultTable.tsx",
+        "purpose": "回测结果列表表格组件"
+      },
+      {
+        "path": "frontend/src/components/MetricCard.tsx",
+        "purpose": "指标卡片组件：展示数值与标签"
+      },
+      {
+        "path": "frontend/src/components/Charts/NetValueChart.tsx",
+        "purpose": "净值曲线图组件（recharts）"
+      },
+      {
+        "path": "frontend/src/components/Charts/DrawdownChart.tsx",
+        "purpose": "回撤曲线图组件（recharts）"
+      },
+      {
+        "path": "frontend/src/components/EmptyState.tsx",
+        "purpose": "空状态展示组件"
+      },
+      {
+        "path": "frontend/src/components/LoadingSpinner.tsx",
+        "purpose": "加载动画组件"
+      },
+      {
+        "path": "frontend/src/components/DeleteConfirmModal.tsx",
+        "purpose": "删除确认弹窗组件"
+      },
+      {
+        "path": "frontend/src/services/api.ts",
+        "purpose": "axios实例配置、拦截器添加token、统一请求函数"
+      },
+      {
+        "path": "frontend/src/store/authStore.ts",
+        "purpose": "认证状态管理（zustand）：token、user、login/logout"
+      },
+      {
+        "path": "frontend/src/store/strategyStore.ts",
+        "purpose": "策略状态管理：列表、当前策略、增删改"
+      },
+      {
+        "path": "frontend/src/store/backtestStore.ts",
+        "purpose": "回测结果状态管理：列表、详情"
+      },
+      {
+        "path": "frontend/src/utils/validation.ts",
+        "purpose": "表单校验工具函数"
+      },
+      {
+        "path": "frontend/src/utils/formatters.ts",
+        "purpose": "日期、数字等格式化工具函数"
+      }
+    ]
+  },
+  "traces": [
+    {
+      "agent": "需求分析 Agent",
+      "title": "需求规格与 PRD",
+      "summary": "基于AI多轮对话的量化策略生成与回测系统，支持快速生成可在聚宽平台运行的策略代码，提供代码编辑、快速回测、绩效分析等功能，MVP版本本地可运行。",
+      "output_keys": [
+        "requirement_spec",
+        "prd_document"
+      ]
+    },
+    {
+      "agent": "UI 分析 Agent",
+      "title": "UI 规格与设计稿",
+      "summary": "专业、数据密集、高效、无营销风格，符合内部业务系统特征",
+      "output_keys": [
+        "ui_spec",
+        "ui_design_drafts"
+      ]
+    },
+    {
+      "agent": "后端 Agent",
+      "title": "后端与 API 契约",
+      "summary": "FastAPI",
+      "output_keys": [
+        "backend_spec",
+        "api_contract"
+      ]
+    },
+    {
+      "agent": "前端 Agent",
+      "title": "前端实现规格",
+      "summary": "React",
+      "output_keys": [
+        "frontend_spec"
+      ]
+    },
+    {
+      "agent": "集成检查 Agent",
+      "title": "集成与演示方案",
+      "summary": "PRD、UI 设计稿、前后端契约对齐与运行说明",
+      "output_keys": [
+        "integration_spec"
+      ]
+    }
+  ]
+}
